@@ -107,7 +107,12 @@ def action_value(actions, matcher):
 
 
 def is_lead_action(action_type):
-    return "lead" in action_type.lower()
+    # IMPORTANTE: casar só o action_type canônico 'lead' (formulário nativo do
+    # Meta / Lead Ads). Usar "contains 'lead'" soma tipos redundantes que
+    # representam o MESMO lead em múltiplos níveis (ex.: 'lead' e
+    # 'onsite_conversion.lead_grouped' aparecem juntos para o mesmo evento),
+    # o que inflava a contagem (~5x mais leads do que o real em teste).
+    return action_type == "lead"
 
 
 def is_messaging_action(action_type):
@@ -252,13 +257,19 @@ def fetch_account_fields(act_id):
     url = f"{GRAPH_BASE}/{act_id}"
     resp = requests.get(
         url,
-        params={"fields": "spend_cap,amount_spent,currency", "access_token": TOKEN},
+        params={"fields": "spend_cap,amount_spent,balance,currency,name", "access_token": TOKEN},
         timeout=60,
     )
     if resp.status_code != 200:
         print(f"ERRO Graph API ({resp.status_code}) em {act_id}: {resp.text[:800]}", file=sys.stderr)
         resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    print(
+        f"  [debug saldo] {act_id} ({data.get('name')}): "
+        f"spend_cap_raw={data.get('spend_cap')} amount_spent_raw={data.get('amount_spent')} "
+        f"balance_raw={data.get('balance')} currency={data.get('currency')}"
+    )
+    return data
 
 
 def weekend_factor_for_group(daily, group_segs, lmc_start, lmc_end):
